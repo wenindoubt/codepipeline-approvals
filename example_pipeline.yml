@@ -1,0 +1,192 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creates a dummy CodePipeline for testing approval integration.
+
+Parameters:
+  TargetTestHost:
+    Type: String
+    Default: www.google.com?q=test
+    Description: The host name of the target test service
+
+  TargetProdHost:
+    Type: String
+    Default: www.google.com?q=prod
+    Description: The host name of the target production service
+
+  CDBranchName:
+    Type: String
+    Default: master
+    Description: The name of the branch to watch for continuous deployment
+
+  SourceRepoOwner:
+    Type: String
+    Default: ndlib
+    Description: The owner of the repository in Github
+
+  SourceRepoName:
+    Type: String
+    Default: codepipeline-approvals
+    Description: The name of the repository in Github
+
+  GithubOAuth:
+    Type: String
+    NoEcho: true
+    Description: The OAuth Token Value to connect CodePipeline to GitHub. Passed in at Runtime.
+
+Outputs:
+
+  PipelineName:
+    Description: The name of the pipeline created by this stack
+    Value: !Ref CodePipeline
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'PipelineName']]
+
+  Approvers1Topic:
+    Description: The SNS topic
+    Value: !Ref Approvers1Topic
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'Approvers1Topic']]
+
+  Approvers2Topic:
+    Description: The SNS topic
+    Value: !Ref Approvers2Topic
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'Approvers2Topic']]
+
+  Approvers3Topic:
+    Description: The SNS topic
+    Value: !Ref Approvers3Topic
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'Approvers3Topic']]
+
+Resources:
+  Approvers1Topic:
+    Type: AWS::SNS::Topic
+
+  Approvers2Topic:
+    Type: AWS::SNS::Topic
+
+  Approvers3Topic:
+    Type: AWS::SNS::Topic
+
+  CodeS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  CodePipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: "TrustPolicyAllowCodePipelineToAssume"
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "codepipeline.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+
+  CodePipelinePolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      Description: "Policy to Allow CodePipeline to do its work"
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action: iam:PassRole
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - codepipeline:*
+              - sns:Publish
+            Resource: '*'
+          - Effect: Allow
+            Action:
+              - s3:PutObject
+              - s3:GetObject
+            Resource:
+              - !GetAtt CodeS3Bucket.Arn
+              - Fn::Join:
+                  - ""
+                  -
+                    - !GetAtt CodeS3Bucket.Arn
+                    - "/*"
+          - Effect: Allow
+            Action:
+              - s3:GetObject
+              - s3:GetObjectVersion
+              - s3:GetBucketVersioning
+            Resource: "*"
+      Roles:
+        - !Ref CodePipelineRole
+
+  CodePipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      ArtifactStore:
+        Location: !Ref CodeS3Bucket
+        Type: S3
+      RoleArn: !GetAtt CodePipelineRole.Arn
+      Stages:
+        -
+          Name: Source
+          Actions:
+            -
+              Name: "RetrieveSourceCode"
+              ActionTypeId:
+                Owner: ThirdParty
+                Category: Source
+                Provider: GitHub
+                Version: "1"
+              Configuration:
+                Owner: !Ref SourceRepoOwner
+                Repo: !Ref SourceRepoName
+                Branch: !Ref CDBranchName
+                OAuthToken: !Ref GithubOAuth
+                PollForSourceChanges: "false"
+              OutputArtifacts:
+                - Name: SourceCode
+        -
+          Name: Approval1
+          Actions:
+            -
+              Name: "Approval1"
+              ActionTypeId:
+                Owner: AWS
+                Category: Approval
+                Provider: Manual
+                Version: "1"
+              Configuration:
+                NotificationArn: !Ref Approvers1Topic
+                CustomData: !Sub "Approval1: A new version of dummy application has been deployed to https://${TargetTestHost}. Once approved, these changes will be deployed to https://${TargetProdHost}"
+        -
+          Name: Approval2
+          Actions:
+            -
+              Name: "Approval2"
+              ActionTypeId:
+                Owner: AWS
+                Category: Approval
+                Provider: Manual
+                Version: "1"
+              Configuration:
+                NotificationArn: !Ref Approvers2Topic
+                CustomData: !Sub "Approval2: A new version of dummy application has been deployed to https://${TargetTestHost}. Once approved, these changes will be deployed to https://${TargetProdHost}"
+        -
+          Name: Approval3
+          Actions:
+            -
+              Name: "Approval3"
+              ActionTypeId:
+                Owner: AWS
+                Category: Approval
+                Provider: Manual
+                Version: "1"
+              Configuration:
+                NotificationArn: !Ref Approvers3Topic
+                CustomData: !Sub "Approval3: A new version of dummy application has been deployed to https://${TargetTestHost}. Once approved, these changes will be deployed to https://${TargetProdHost}"
