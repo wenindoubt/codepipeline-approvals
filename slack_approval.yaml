@@ -1,0 +1,140 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Creates a Serverless application that subscribes to a ManualApproval step in a CodePipeline so that users can approve or deny the pipeline via Slack
+
+Globals:
+    Function:
+        Timeout: 30
+
+Parameters:
+
+  PipelineName:
+    Type: String
+    Default: ''
+    Description: The name of the target pipeline. If this is given, make sure it is correct! The events will silently fail otherwise.
+
+  PipelineExportName:
+    Type: String
+    Default: ''
+    Description: Use this if you prefer importing the PipelineName from the stack that created the Pipeline
+
+  ApprovalTopicExportName:
+    Type: String
+    Description: The name of the export that will provide the SNS Topic ARN to subscribe to for approvals
+
+  AppConfigPath:
+    Type: String
+    Description: The SSM path to get application configuration from
+
+Rules:
+  PipelinePresence:
+    Assertions:
+      - AssertDescription: Either PipelineName or PipelineExportName must be present
+        Assert: !Not
+          - !EachMemberEquals
+            - [!Ref PipelineExportName, !Ref PipelineName]
+            - ""
+
+Conditions:
+  # Presence checks need to be on exports, otherwise the import validation step
+  # fails before the rules/assertions are evaluated.
+  NoPipelineExportName: !Equals
+    - !Ref PipelineExportName
+    - ''
+
+Resources:
+  SNSTopic:
+    Type: AWS::SNS::Topic
+
+  PipelineApprovalExecutionRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        -
+          PolicyName: "AllowApprovals"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              -
+                Effect: "Allow"
+                Action:
+                  - "codepipeline:PutApprovalResult"
+                Resource: !Sub
+                  - "arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:${ResolvedPipelineName}/*"
+                  - ResolvedPipelineName: !If
+                    - NoPipelineExportName
+                    - !Ref PipelineName
+                    - Fn::ImportValue: !Ref PipelineExportName
+
+        -
+          PolicyName: "GetAppConfig"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              -
+                Effect: "Allow"
+                Action:
+                  - "ssm:GetParametersByPath"
+                Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${AppConfigPath}"
+
+  NotifyLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+        CodeUri: slack_handler/
+        Handler: index.notifyHandler
+        Runtime: nodejs8.10
+        Role: !GetAtt PipelineApprovalExecutionRole.Arn
+        Environment:
+            Variables:
+              APP_CONFIG_PATH: !Ref AppConfigPath
+              APP_CONFIG_FORCE_RELOAD: 'false'
+        Events:
+          SNSTopic:
+            Type: SNS
+            Properties:
+              Topic:
+                Fn::ImportValue: !Ref ApprovalTopicExportName
+
+  ApprovalLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+        CodeUri: slack_handler/
+        Handler: index.approvalHandler
+        Runtime: nodejs8.10
+        Role: !GetAtt PipelineApprovalExecutionRole.Arn
+        Environment:
+            Variables:
+              APP_CONFIG_PATH: !Ref AppConfigPath
+              APP_CONFIG_FORCE_RELOAD: 'false'
+        Events:
+          ApprovalEndpoint:
+            Type: Api
+            Properties:
+              Path: /approval
+              Method: post
+
+  # Map inter-stack values to app config for convenience
+  AppParamPipelineName:
+    Type: "AWS::SSM::Parameter"
+    Properties:
+      Description: Name of the Pipeline that this service is approving
+      Name: !Sub '${AppConfigPath}/pipelineName'
+      Type: String
+      Value: !If
+        - NoPipelineExportName
+        - !Ref PipelineName
+        - Fn::ImportValue: !Ref PipelineExportName
