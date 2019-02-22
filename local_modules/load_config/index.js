@@ -31,7 +31,7 @@ const loadConfig = (appConfigPath, requiredParams = []) => {
           throw new Error(`Required key ${key} was not found in ${appConfigPath}.`);
         }
       });
-      console.log("Config successfully loaded.", config);
+      console.log("Config successfully loaded.");
       configLoaded = true;
       return config;
     })

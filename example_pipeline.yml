@@ -98,30 +98,21 @@ Resources:
         Version: '2012-10-17'
         Statement:
           - Effect: Allow
-            Action: iam:PassRole
-            Resource: "*"
-          - Effect: Allow
             Action:
-              - codepipeline:*
               - sns:Publish
-            Resource: '*'
+            Resource:
+              - !Ref Approvers1Topic
+              - !Ref Approvers2Topic
+              - !Ref Approvers3Topic
           - Effect: Allow
             Action:
               - s3:PutObject
               - s3:GetObject
             Resource:
               - !GetAtt CodeS3Bucket.Arn
-              - Fn::Join:
-                  - ""
-                  -
-                    - !GetAtt CodeS3Bucket.Arn
-                    - "/*"
-          - Effect: Allow
-            Action:
-              - s3:GetObject
-              - s3:GetObjectVersion
-              - s3:GetBucketVersioning
-            Resource: "*"
+              - !Sub
+                - "${CodeBucketArn}/*"
+                - CodeBucketArn: !GetAtt CodeS3Bucket.Arn
       Roles:
         - !Ref CodePipelineRole
 
