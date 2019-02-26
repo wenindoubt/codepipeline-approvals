@@ -30,8 +30,9 @@ The following SSM parameter keys to exist within your AppConfigPath:
 
 | Key | Description | Example Create |
 |----|-----------|------ |
-|verificationToken| | |
-|webhookUrl| | |
+|verificationToken|The verification token for your Slack application. See https://api.slack.com/events-api#url_verification|aws ssm put-parameter --type 'SecureString' --name '/all/cd-approvals/slack/verificationToken' --value 'myVerificationToken'|
+|webhookUrl|The incoming webhook URL for your Slack application. See https://api.slack.com/incoming-webhooks|aws ssm put-parameter --type 'SecureString' --name '/all/cd-approvals/slack/webhookUrl' --value 'myWebhookUrl'|
+|mentions|Additional string to use for mentions as part of the notification. Mentions will be included after the 'Do you approve these changes?' prompt. See https://api.slack.com/docs/message-formatting#linking_to_channels_and_users for more information|aws ssm put-parameter --type 'String' --name '/all/cd-approvals/slack/mentions' --value '<@U024BE7LH>'|
 
 
 ## Test
