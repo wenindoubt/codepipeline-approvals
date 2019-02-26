@@ -19,8 +19,14 @@ Parameters:
     Default: ''
     Description: Use this if you prefer importing the PipelineName from the stack that created the Pipeline
 
+  ApprovalTopicArn:
+    Type: String
+    Default: ''
+    Description: The ARN of the SNS topic to subscribe to for approvals
+
   ApprovalTopicExportName:
     Type: String
+    Default: ''
     Description: The name of the export that will provide the SNS Topic ARN to subscribe to for approvals
 
   AppConfigPath:
@@ -36,11 +42,22 @@ Rules:
             - [!Ref PipelineExportName, !Ref PipelineName]
             - ""
 
+  TopicPresence:
+    Assertions:
+      - AssertDescription: Either ApprovalTopicArn or ApprovalTopicExportName must be present
+        Assert: !Not
+          - !EachMemberEquals
+            - [!Ref ApprovalTopicArn, !Ref ApprovalTopicExportName]
+            - ""
+
 Conditions:
   # Presence checks need to be on exports, otherwise the import validation step
   # fails before the rules/assertions are evaluated.
   NoPipelineExportName: !Equals
     - !Ref PipelineExportName
+    - ''
+  NoTopicExportName: !Equals
+    - !Ref ApprovalTopicExportName
     - ''
 
 Resources:
@@ -106,8 +123,10 @@ Resources:
           SNSTopic:
             Type: SNS
             Properties:
-              Topic:
-                Fn::ImportValue: !Ref ApprovalTopicExportName
+              Topic: !If
+                - NoTopicExportName
+                - !Ref ApprovalTopicArn
+                - Fn::ImportValue: !Ref ApprovalTopicExportName
 
   ApprovalLambda:
     Type: AWS::Serverless::Function

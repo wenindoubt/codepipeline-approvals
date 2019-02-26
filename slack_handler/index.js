@@ -10,14 +10,28 @@ const requiredConfigKeys = ['pipelineName', 'verificationToken', 'webhookUrl'];
 // Posts a message to the SNS approvers topic with links to the API that will either approve/reject the build
 const postToApprovers = (event) => {
   //console.log('postToApprovers', event);
-  const approval = JSON.parse(event.Records[0].Sns.Message).approval;
-  const { token, pipelineName, externalEntityLink, customData, actionName, stageName } = approval;
+  const snsMessage = JSON.parse(event.Records[0].Sns.Message);
+  const { token, pipelineName, externalEntityLink, customData, actionName, stageName } = snsMessage.approval;
+
+  const mentions = config.mentions ? config.mentions : ''
   const slackMessage = {
-    "text": customData,
+    "text": 'A deployment pipeline is awaiting approval:',
     "attachments": [
         {
-            "fallback": "Do you approve these changes?",
-            "title": "Do you approve these changes?",
+            "fields": [
+              {
+                'title': 'Pipeline',
+                'value': `<${snsMessage.consoleLink}|${pipelineName}>`
+              },
+              {
+                'title': 'Message',
+                'value': customData
+              }
+            ]
+        },
+        {
+            "fallback": `Do you approve these changes? ${mentions}`,
+            "title": `Do you approve these changes? ${mentions}`,
             "callback_id": pipelineName,
             "color": "#3AA3E3",
             "attachment_type": "default",
@@ -84,7 +98,7 @@ const putApproval = (event) => {
       token: requestAction.token,
     };
     const putPromise = new AWS.CodePipeline({apiVersion: '2015-07-09'}).putApprovalResult(params).promise()
-      .then((data) => { return { "statusCode": 200, "body": `Changes were ${action}.` }; })
+      .then((data) => { return { "statusCode": 200, "body": `Changes were ${action} by <@${payload.user.id}>.` }; })
       .catch((err) => {
         // We want to handle the already approved error so that we can respond appropriately to the channel
         if(err.statusCode == 400 && err.code == 'ApprovalAlreadyCompletedException')
