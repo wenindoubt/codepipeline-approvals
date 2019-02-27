@@ -1,7 +1,14 @@
-const AWS = require('aws-sdk');
-const fetch = require('node-fetch');
-const querystring = require('querystring');
-const loadConfig = require('load-config');
+// Exposing dependencies to allow mocking
+const deps = {};
+deps.AWS = require('aws-sdk');
+deps.CodePipeline = new deps.AWS.CodePipeline({apiVersion: '2015-07-09'})
+deps.querystring = require('querystring');
+deps.fetch = require('node-fetch');
+deps.loadConfig = require('load-config');
+deps.log = console.log;
+deps.error = console.error;
+exports.deps = deps;
+
 const appConfigPath = process.env.APP_CONFIG_PATH;
 
 let config;
@@ -9,7 +16,7 @@ const requiredConfigKeys = ['pipelineName', 'verificationToken', 'webhookUrl'];
 
 // Posts a message to the SNS approvers topic with links to the API that will either approve/reject the build
 const postToApprovers = (event) => {
-  //console.log('postToApprovers', event);
+  //deps.log('postToApprovers', event);
   const snsMessage = JSON.parse(event.Records[0].Sns.Message);
   const { token, pipelineName, externalEntityLink, customData, actionName, stageName } = snsMessage.approval;
 
@@ -58,22 +65,21 @@ const postToApprovers = (event) => {
     body:    JSON.stringify(slackMessage),
     headers: { 'Content-Type': 'application/json' },
   }
-  const publishMessagePromise = fetch(config.webhookUrl, params)
+  const publishMessagePromise = deps.fetch(config.webhookUrl, params)
       .then(res => res.text())
-      .then(json => console.log('Publish response:', json))
-      .catch((err) => { console.error(err, err.stack); });
+      .then(json => deps.log('Publish response:', json))
+      .catch((err) => { deps.error(err, err.stack); });
   return publishMessagePromise;
 }
 
 // Approve/reject the pipeline for the user. Assumes the token is valid, if not, the pipeline will raise the exception
 const putApproval = (event) => {
-  //console.log('putApproval', event);
-  const apiUrl = event.requestContext.domainName;
-  const body = querystring.parse(event.body);
+  //deps.log('putApproval', event);
+  const body = deps.querystring.parse(event.body);
   const payload = JSON.parse(body.payload);
 
   // Validate Slack token. TODO: Move to signing secret
-  if(config.verificationToken != payload.token){
+  if(config.verificationToken !== payload.token){
     return  {
       "isBase64Encoded": "false",
       "statusCode": 403,
@@ -82,13 +88,10 @@ const putApproval = (event) => {
   } else {
     // Process request
     const requestAction = JSON.parse(payload.actions[0].value)
-    const action = requestAction.approve == "True" ? 'Approved' : 'Rejected';
+    const action = requestAction.approve === "True" ? 'Approved' : 'Rejected';
     var params = {
       actionName: requestAction.actionName,
-      // Using target pipeline to ensure this only performs approvals for the pipeline it was associated with.
-      // We could later make this a more reusable lambda by getting the pipeline name from the SNS event, but
-      // for now leaving it this way as an extra way to ensure a user has both the correct API url and token
-      // in order to perform approvals.
+      // TODO: Get this from the event
       pipelineName: config.pipelineName,
       result: {
         status: action,
@@ -97,13 +100,13 @@ const putApproval = (event) => {
       stageName: requestAction.stageName,
       token: requestAction.token,
     };
-    const putPromise = new AWS.CodePipeline({apiVersion: '2015-07-09'}).putApprovalResult(params).promise()
+    const putPromise = deps.CodePipeline.putApprovalResult(params).promise()
       .then((data) => { return { "statusCode": 200, "body": `Changes were ${action} by <@${payload.user.id}>.` }; })
       .catch((err) => {
         // We want to handle the already approved error so that we can respond appropriately to the channel
-        if(err.statusCode == 400 && err.code == 'ApprovalAlreadyCompletedException')
+        if(err.statusCode === 400 && err.code === 'ApprovalAlreadyCompletedException')
           return { "statusCode": 200, "body": err.message };
-        console.error(err);
+        deps.error(err);
         return { "statusCode": 500, "body": err.message };
       });
     return putPromise;
@@ -111,11 +114,11 @@ const putApproval = (event) => {
 }
 
 exports.notifyHandler = async (event) => {
-  config = await loadConfig(appConfigPath, requiredConfigKeys);
+  config = await deps.loadConfig(appConfigPath, requiredConfigKeys);
   return postToApprovers(event);
 };
 
 exports.approvalHandler = async (event) => {
-  config = await loadConfig(appConfigPath, requiredConfigKeys);
+  config = await deps.loadConfig(appConfigPath, requiredConfigKeys);
   return putApproval(event);
 };
