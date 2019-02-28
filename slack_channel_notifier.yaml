@@ -1,8 +1,9 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: >
-  Creates a Serverless application that can receive interactive actions from Slack and perform CodePipeline approvals.
-  Only one of these should exist per Slack application.
+  Creates a Lambda that can receive CodePipeline ManualApproval SNS notifications and relay the message to a Slack channel
+  with a set of interactive buttons for performing the approval/rejection of that pipeline.
+  Only one of these should exist per incoming webhook (channel) in your Slack application.
 
 Globals:
     Function:
@@ -16,8 +17,14 @@ Parameters:
 
 Outputs:
 
+  LambdaArn:
+    Description: The ARN of the notification lambda created by this stack
+    Value: !GetAtt NotifyLambda.Arn
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'LambdaArn']]
+
   LambdaExecutionRole:
-    Description: The role that the approval lambda will execute under
+    Description: The ARN of the role that will be used by the notification lambda
     Value: !Ref LambdaExecutionRole
     Export:
       Name: !Join [ ':', [ !Ref 'AWS::StackName', 'LambdaExecutionRole']]
@@ -52,20 +59,14 @@ Resources:
                   - "ssm:GetParametersByPath"
                 Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${AppConfigPath}"
 
-  ApprovalLambda:
+  NotifyLambda:
     Type: AWS::Serverless::Function
     Properties:
         CodeUri: slack_handler/
-        Handler: index.approvalHandler
+        Handler: index.notifyHandler
         Runtime: nodejs8.10
         Role: !GetAtt LambdaExecutionRole.Arn
         Environment:
             Variables:
               APP_CONFIG_PATH: !Ref AppConfigPath
               APP_CONFIG_FORCE_RELOAD: 'false'
-        Events:
-          ApprovalEndpoint:
-            Type: Api
-            Properties:
-              Path: /approval
-              Method: post

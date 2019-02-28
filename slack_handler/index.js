@@ -1,7 +1,7 @@
 // Exposing dependencies to allow mocking
 const deps = {};
 deps.AWS = require('aws-sdk');
-deps.CodePipeline = new deps.AWS.CodePipeline({apiVersion: '2015-07-09'})
+deps.CodePipeline = deps.AWS.CodePipeline;
 deps.querystring = require('querystring');
 deps.fetch = require('node-fetch');
 deps.loadConfig = require('load-config');
@@ -12,12 +12,13 @@ exports.deps = deps;
 const appConfigPath = process.env.APP_CONFIG_PATH;
 
 let config;
-const requiredConfigKeys = ['pipelineName', 'verificationToken', 'webhookUrl'];
+const requiredConfigKeys = ['verificationToken', 'webhookUrl'];
 
 // Posts a message to the SNS approvers topic with links to the API that will either approve/reject the build
 const postToApprovers = (event) => {
   //deps.log('postToApprovers', event);
   const snsMessage = JSON.parse(event.Records[0].Sns.Message);
+  const pipelineRegion = snsMessage.region;
   const { token, pipelineName, externalEntityLink, customData, actionName, stageName } = snsMessage.approval;
 
   const mentions = config.mentions ? config.mentions : ''
@@ -48,13 +49,13 @@ const postToApprovers = (event) => {
                     "text": "Approve",
                     "style": "danger",
                     "type": "button",
-                    "value": `{\"approve\": \"True\", \"token\": \"${token}\", \"codePipelineName\": \"${pipelineName}\", \"stageName\":\"${stageName}\", \"actionName\": \"${actionName}\"}`
+                    "value": `{\"approve\": \"True\", \"token\": \"${token}\", \"codePipelineName\": \"${pipelineName}\", \"codePipelineRegion\": \"${pipelineRegion}\", \"stageName\":\"${stageName}\", \"actionName\": \"${actionName}\"}`
                 },
                 {
                     "name": "approve",
                     "text": "Reject",
                     "type": "button",
-                    "value": `{\"approve\": \"False\", \"token\": \"${token}\", \"codePipelineName\": \"${pipelineName}\", \"stageName\":\"${stageName}\", \"actionName\": \"${actionName}\"}`
+                    "value": `{\"approve\": \"False\", \"token\": \"${token}\", \"codePipelineName\": \"${pipelineName}\", \"codePipelineRegion\": \"${pipelineRegion}\", \"stageName\":\"${stageName}\", \"actionName\": \"${actionName}\"}`
                 }
             ]
         }
@@ -91,8 +92,7 @@ const putApproval = (event) => {
     const action = requestAction.approve === "True" ? 'Approved' : 'Rejected';
     var params = {
       actionName: requestAction.actionName,
-      // TODO: Get this from the event
-      pipelineName: config.pipelineName,
+      pipelineName: requestAction.codePipelineName,
       result: {
         status: action,
         summary: `${action} by ${payload.user.name} in Slack channel ${payload.channel.name} (${payload.channel.id})`.substring(0, 512) // Prevent length from throwing an exception
@@ -100,7 +100,8 @@ const putApproval = (event) => {
       stageName: requestAction.stageName,
       token: requestAction.token,
     };
-    const putPromise = deps.CodePipeline.putApprovalResult(params).promise()
+    const pipeline = new deps.CodePipeline(({ apiVersion: '2015-07-09', region: requestAction.codePipelineRegion }));
+    const putPromise = pipeline.putApprovalResult(params).promise()
       .then((data) => { return { "statusCode": 200, "body": `Changes were ${action} by <@${payload.user.id}>.` }; })
       .catch((err) => {
         // We want to handle the already approved error so that we can respond appropriately to the channel

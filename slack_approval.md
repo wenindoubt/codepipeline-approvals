@@ -49,23 +49,44 @@ yarn test
 cd slack_handler
 yarn install --production
 ```
-2. Package the lambda and copy it to your code bucket:
+2. Package the approval lambda and deploy it. Do this once per Slack application:
 ```console
 aws cloudformation package \
     --template-file slack_approval.yaml \
     --output-template-file slack_approval_packaged.yaml \
     --s3-bucket my-code-bucket-name
-```
-3. Deploy the output packaged.yaml template:
-```console
 aws cloudformation deploy \
   --capabilities CAPABILITY_IAM \
   --template-file slack_approval_packaged.yaml \
   --region my-region \
-  --stack-name appname-pipeline-slack-approval \
-  --parameter-overrides PipelineExportName='appname-pipeline-prep:PipelineName' AppConfigPath="/all/appname/cd-approvals/prep" \
-    SNSTopicExportName='appname-pipeline-prep:Approvers1Topic' Approvers='approvers@mydomain.com' NotificationSubject='Appname requires your approval'
+  --stack-name slackappname-pipeline-approval \
+  --parameter-overrides AppConfigPath="/all/cd-approvals/slack" \
 ```
-*Note: In the above command, you can optionally directly specify the pipeline name with the PipelineName parameter. If both are given, it will use the PipelineExportName over the given PipelineName since an export from a stack is less likely to be incorrect.*
+3. For each incoming webhook that you want to publish to, deploy a notifier lambda:
+```
+aws cloudformation package \
+    --template-file slack_channel_notifier.yaml \
+    --output-template-file slack_notifier_packaged.yaml \
+    --s3-bucket my-code-bucket-name
+aws cloudformation deploy \
+  --template-file slack_notifier_packaged.yaml \
+  --region my-region \
+  --capabilities CAPABILITY_IAM \
+  --stack-name slack-channelname-notifier \
+  --parameter-overrides AppConfigPath='/all/cd-approvals/slack'
+```
+*Note: Make sure the config path has the required webhookUrl, verificationToken, and mentions specific to that channel.*
+
+4. For each Pipeline/channel combination that you want to publish to, deploy a pipeline attachment stack:
+```
+aws cloudformation deploy \
+  --template-file slack_pipeline_attachment.yaml \
+  --region my-region \
+  --capabilities CAPABILITY_IAM \
+  --stack-name example-pipeline-slack-approval \
+  --parameter-overrides ApprovalStackName='slackappname-pipeline-approval' NotifyStackName='slack-channelname-notifier' \
+    PipelineExportName='appname-pipeline:PipelineName' ApprovalTopicExportName='appname-pipeline:Approvers1Topic'
+```
+*Note: In the above command, you can optionally directly specify the pipeline name with the PipelineName parameter. If both are given, it will use the PipelineExportName over the given PipelineName since an export from a stack is less likely to be incorrect. Similarly, you can directly specify the Approval topic ARN with the ApprovalTopicArn parameter.*
 
 TODO: Add Slack App configuration steps

@@ -9,8 +9,8 @@ const chai = helpers.chai,
 
 // Creates a test event that looks like the events we will receive from SNS when the
 // pipeline has reached the ManualApproval stage
-const newNotifySNSEvent = (options = { token: null, pipelineName: null, stageName: null, actionName: null, customData: null }) => {
-  const { token, pipelineName, stageName, actionName, customData } = options;
+const newNotifySNSEvent = (options = { token: null, pipelineName: null, pipelineRegion: null, stageName: null, actionName: null, customData: null }) => {
+  const { token, pipelineName, pipelineRegion, stageName, actionName, customData } = options;
   return {
     "Records": [
         {
@@ -22,7 +22,7 @@ const newNotifySNSEvent = (options = { token: null, pipelineName: null, stageNam
                 "MessageId": "MessageIdValue",
                 "TopicArn": "TopicArnValue",
                 "Subject": "SubjectValue",
-                "Message": `{"region":"regionValue","consoleLink":"consoleLinkValue","approval":{"pipelineName":"${pipelineName}","stageName":"${stageName}","actionName":"${actionName}","token":"${token}","expires":"expiresValue","externalEntityLink":"externalEntityLinkValue","approvalReviewLink":"approvalReviewLinkValue","customData":"${customData}"}}`,
+                "Message": `{"region":"${pipelineRegion}","consoleLink":"consoleLinkValue","approval":{"pipelineName":"${pipelineName}","stageName":"${stageName}","actionName":"${actionName}","token":"${token}","expires":"expiresValue","externalEntityLink":"externalEntityLinkValue","approvalReviewLink":"approvalReviewLinkValue","customData":"${customData}"}}`,
                 "Timestamp": "TimestampValue",
                 "SignatureVersion": "SignatureVersionValue",
                 "Signature": "SignatureValue",
@@ -78,6 +78,7 @@ describe('notify handler', _ => {
     const mockSnsData = {
       token: randString(),
       pipelineName: randString(),
+      pipelineRegion: randString(),
       stageName: randString(),
       actionName: randString(),
     };
@@ -85,8 +86,8 @@ describe('notify handler', _ => {
       const fetchBody = JSON.parse(params.body);
       fetchBody.attachments.should.include.something.like({
         actions: [
-          { value: `{\"approve\": \"True\", \"token\": \"${mockSnsData.token}\", \"codePipelineName\": \"${mockSnsData.pipelineName}\", \"stageName\":\"${mockSnsData.stageName}\", \"actionName\": \"${mockSnsData.actionName}\"}` },
-          { value: `{\"approve\": \"False\", \"token\": \"${mockSnsData.token}\", \"codePipelineName\": \"${mockSnsData.pipelineName}\", \"stageName\":\"${mockSnsData.stageName}\", \"actionName\": \"${mockSnsData.actionName}\"}` }
+          { value: `{\"approve\": \"True\", \"token\": \"${mockSnsData.token}\", \"codePipelineName\": \"${mockSnsData.pipelineName}\", \"codePipelineRegion\": \"${mockSnsData.pipelineRegion}\", \"stageName\":\"${mockSnsData.stageName}\", \"actionName\": \"${mockSnsData.actionName}\"}` },
+          { value: `{\"approve\": \"False\", \"token\": \"${mockSnsData.token}\", \"codePipelineName\": \"${mockSnsData.pipelineName}\", \"codePipelineRegion\": \"${mockSnsData.pipelineRegion}\", \"stageName\":\"${mockSnsData.stageName}\", \"actionName\": \"${mockSnsData.actionName}\"}` }
         ]
       });
       return Promise.resolve({ text: _ => 'mock fetch response'});
