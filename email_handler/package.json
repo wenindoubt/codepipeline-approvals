@@ -15,6 +15,7 @@
     "test": "mocha tests/unit/"
   },
   "devDependencies": {
+    "aws-sdk": "^2.412.0",
     "chai": "^4.1.2",
     "chai-fetch": "^0.3.1",
     "chai-like": "^1.1.1",
