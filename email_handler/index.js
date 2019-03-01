@@ -1,6 +1,14 @@
-const fetch = require('node-fetch');
-const AWS = require('aws-sdk');
-const loadConfig = require('load-config');
+// Exposing dependencies to allow mocking
+const deps = {};
+deps.AWS = require('aws-sdk');
+deps.SNS = new deps.AWS.SNS({apiVersion: '2010-03-31'});
+deps.CodePipeline = new deps.AWS.CodePipeline({apiVersion: '2015-07-09'});
+deps.querystring = require('querystring');
+deps.fetch = require('node-fetch');
+deps.loadConfig = require('load-config');
+deps.log = console.log;
+deps.error = console.error;
+exports.deps = deps;
 
 const appConfigPath = process.env.APP_CONFIG_PATH;
 
@@ -24,9 +32,9 @@ const postToApprovers = (event) => {
     Or to reject, click here ${rejectUrl}`,
     TopicArn: config.approvalSnsTopicArn,
   };
-  const publishTextPromise = new AWS.SNS({apiVersion: '2010-03-31'}).publish(params).promise()
-    .then((data) => { console.log('Publish response:', data); })
-    .catch((err) => { console.error(err, err.stack); });
+  const publishTextPromise = deps.SNS.publish(params).promise()
+    .then((data) => { deps.log('Publish response:', data); })
+    .catch((err) => { deps.error(err, err.stack); });
   return publishTextPromise;
 }
 
@@ -49,18 +57,18 @@ const putApproval = (event) => {
     stageName: requestParams.stageName,
     token: requestParams.token,
   };
-  const putPromise = new AWS.CodePipeline({apiVersion: '2015-07-09'}).putApprovalResult(params).promise()
+  const putPromise = new deps.CodePipeline.putApprovalResult(params).promise()
     .then((data) => { return { "statusCode": 200, "body": `Changes were ${action}.` }; })
-    .catch((err) => { console.error(err); return { "statusCode": 500, "body": err.message }; });
+    .catch((err) => { deps.error(err); return { "statusCode": 500, "body": err.message }; });
   return putPromise;
 }
 
 exports.notifyHandler = async (event) => {
-  config = await loadConfig(appConfigPath, requiredConfigKeys);
+  config = await deps.loadConfig(appConfigPath, requiredConfigKeys);
   return postToApprovers(event);
 };
 
 exports.approvalHandler = async (event) => {
-  config = await loadConfig(appConfigPath, requiredConfigKeys);
+  config = await deps.loadConfig(appConfigPath, requiredConfigKeys);
   return putApproval(event);
 };
