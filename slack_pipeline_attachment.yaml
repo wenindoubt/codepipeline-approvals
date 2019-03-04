@@ -1,0 +1,123 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Subscribes a Notifier lambda to a CodePipeline and adds permissions to allow the Slack app's Approval lambda to approve that pipeline.
+  One of these should exist per Pipeline and incoming webhook (channel) in your Slack application.
+
+Parameters:
+
+  PipelineName:
+    Type: String
+    Default: ''
+    Description: The name of the target pipeline. If this is given, make sure it is correct! The events will silently fail otherwise.
+
+  PipelineExportName:
+    Type: String
+    Default: ''
+    Description: Use this if you prefer importing the PipelineName from the stack that created the Pipeline
+
+  PipelineRegion:
+    Type: String
+    Default: ''
+    Description: The region in which the target Pipeline is deployed. If none is given, it will assume the same region
+
+  ApprovalTopicArn:
+    Type: String
+    Default: ''
+    Description: The ARN of the SNS topic to subscribe to for approvals
+
+  ApprovalTopicExportName:
+    Type: String
+    Default: ''
+    Description: The name of the export that will provide the SNS Topic ARN to subscribe to for approvals
+
+  ApprovalStackName:
+    Type: String
+    Description: The stack name that created the Notification lambda to send approvals to.
+
+  NotifyStackName:
+    Type: String
+    Description: The stack name that created the Notification lambda to send approvals to.
+
+Rules:
+  PipelinePresence:
+    Assertions:
+      - AssertDescription: Either PipelineName or PipelineExportName must be present
+        Assert: !Not
+          - !EachMemberEquals
+            - [!Ref PipelineExportName, !Ref PipelineName]
+            - ""
+
+  TopicPresence:
+    Assertions:
+      - AssertDescription: Either ApprovalTopicArn or ApprovalTopicExportName must be present
+        Assert: !Not
+          - !EachMemberEquals
+            - [!Ref ApprovalTopicArn, !Ref ApprovalTopicExportName]
+            - ""
+
+Conditions:
+  # Presence checks need to be on exports, otherwise the import validation step
+  # fails before the rules/assertions are evaluated.
+  NoPipelineExportName: !Equals
+    - !Ref PipelineExportName
+    - ''
+  NoPipelineRegion: !Equals
+    - !Ref PipelineRegion
+    - ''
+  NoTopicExportName: !Equals
+    - !Ref ApprovalTopicExportName
+    - ''
+
+Resources:
+  AllowApprovalPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub "${AWS::StackName}-AllowApprovals"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Action:
+              - "codepipeline:PutApprovalResult"
+            Resource: !Sub
+              - "arn:aws:codepipeline:${ResolvedPipelineRegion}:${AWS::AccountId}:${ResolvedPipelineName}/*"
+              -
+                ResolvedPipelineName: !If
+                  - NoPipelineExportName
+                  - !Ref PipelineName
+                  - Fn::ImportValue: !Ref PipelineExportName
+                ResolvedPipelineRegion: !If
+                  - NoPipelineRegion
+                  - !Ref AWS::Region
+                  - !Ref PipelineRegion
+      Roles:
+        - Fn::ImportValue: !Sub '${ApprovalStackName}:LambdaExecutionRole'
+
+  NotifyLambdaSNSSubscription:
+    Type: "AWS::SNS::Subscription"
+    Properties:
+      Endpoint:
+        Fn::ImportValue: !Sub '${NotifyStackName}:LambdaArn'
+      Protocol: lambda
+      Region: !If
+        - NoPipelineRegion
+        - !Ref AWS::Region
+        - !Ref PipelineRegion
+      TopicArn: !If
+        - NoTopicExportName
+        - !Ref ApprovalTopicArn
+        - Fn::ImportValue: !Ref ApprovalTopicExportName
+
+  NotifyLambdaSNSPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName:
+        Fn::ImportValue: !Sub '${NotifyStackName}:LambdaArn'
+      Principal: sns.amazonaws.com
+      SourceArn: !If
+        - NoTopicExportName
+        - !Ref ApprovalTopicArn
+        - Fn::ImportValue: !Ref ApprovalTopicExportName

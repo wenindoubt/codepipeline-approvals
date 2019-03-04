@@ -60,7 +60,7 @@ describe('approval handler', _ => {
     chai.spy.on(index.deps, 'loadConfig', _ => ({}));
     const event = newApprovalEvent({ token });
     const result = await subject(event);
-    expect(index.deps.CodePipeline.putApprovalResult).to.be.called;
+    expect(index.deps.CodePipeline.putApprovalResult).to.be.called();
   });
 
   it('approves the pipeline when the submitted action has action=approve', async () => {
@@ -71,7 +71,7 @@ describe('approval handler', _ => {
     chai.spy.on(index.deps, 'loadConfig', _ => ({}));
     const event = newApprovalEvent({ action: 'approve'});
     const result = await subject(event);
-    expect(index.deps.CodePipeline.putApprovalResult).to.be.called;
+    expect(index.deps.CodePipeline.putApprovalResult).to.be.called();
   });
 
   it('rejects the pipeline when the submitted action has action=reject', async () => {
@@ -82,7 +82,7 @@ describe('approval handler', _ => {
     chai.spy.on(index.deps, 'loadConfig', _ => ({}));
     const event = newApprovalEvent({ action: 'reject'});
     const result = await subject(event);
-    expect(index.deps.CodePipeline.putApprovalResult).to.be.called;
+    expect(index.deps.CodePipeline.putApprovalResult).to.be.called();
   });
 
   it('records who approved it and where it was approved in the approval summary', async () => {
@@ -96,7 +96,7 @@ describe('approval handler', _ => {
     chai.spy.on(index.deps, 'loadConfig', _ => ({ approvers }));
     const event = newApprovalEvent({ apiUrl });
     const result = await subject(event);
-    expect(index.deps.CodePipeline.putApprovalResult).to.be.called;
+    expect(index.deps.CodePipeline.putApprovalResult).to.be.called();
   });
 
   it('gives feedback to the user when their approval action was successful', async () => {
