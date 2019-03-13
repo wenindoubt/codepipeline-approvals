@@ -53,55 +53,85 @@ describe('approval handler', _ => {
 
   it('uses the approval token from the query string', async () => {
     const token = randString();
-    chai.spy.on(index.deps.CodePipeline, 'putApprovalResult', (params) => {
-      expect(params.token).to.equal(token);
-      return { promise: _ => Promise.resolve() }
-    });
+    const wasCalledSpy = chai.spy();  // this is just to enforce that the interface function was actually called, otherwise
+                                      // the internal expectation will silently pass
+    chai.spy.on(index.deps, 'CodePipeline', (params) => chai.spy.interface({
+        putApprovalResult: (putParams) => {
+          expect(putParams.token).to.equal(token);
+          wasCalledSpy(putParams);
+          return { promise: _ => Promise.resolve() }
+        }
+      })
+    );
     chai.spy.on(index.deps, 'loadConfig', _ => ({}));
     const event = newApprovalEvent({ token });
     const result = await subject(event);
-    expect(index.deps.CodePipeline.putApprovalResult).to.be.called();
+    expect(wasCalledSpy).to.be.called();
   });
 
   it('approves the pipeline when the submitted action has action=approve', async () => {
-    chai.spy.on(index.deps.CodePipeline, 'putApprovalResult', (params) => {
-      expect(params.result.status).to.equal('Approved');
-      return { promise: _ => Promise.resolve() }
-    });
+    const wasCalledSpy = chai.spy();  // this is just to enforce that the interface function was actually called, otherwise
+                                      // the internal expectation will silently pass
+    chai.spy.on(index.deps, 'CodePipeline', (params) => chai.spy.interface({
+        putApprovalResult: (putParams) => {
+          expect(putParams.result.status).to.equal('Approved');
+          wasCalledSpy(putParams);
+          return { promise: _ => Promise.resolve() }
+        }
+      })
+    );
     chai.spy.on(index.deps, 'loadConfig', _ => ({}));
     const event = newApprovalEvent({ action: 'approve'});
     const result = await subject(event);
-    expect(index.deps.CodePipeline.putApprovalResult).to.be.called();
+    expect(wasCalledSpy).to.be.called();
   });
 
   it('rejects the pipeline when the submitted action has action=reject', async () => {
-    chai.spy.on(index.deps.CodePipeline, 'putApprovalResult', (params) => {
-      expect(params.result.status).to.equal('Rejected');
-      return { promise: _ => Promise.resolve() }
-    });
+    const wasCalledSpy = chai.spy();  // this is just to enforce that the interface function was actually called, otherwise
+                                      // the internal expectation will silently pass
+    chai.spy.on(index.deps, 'CodePipeline', (params) => chai.spy.interface({
+        putApprovalResult: (putParams) => {
+          expect(putParams.result.status).to.equal('Rejected');
+          wasCalledSpy(putParams);
+          return { promise: _ => Promise.resolve() }
+        }
+      })
+    );
     chai.spy.on(index.deps, 'loadConfig', _ => ({}));
     const event = newApprovalEvent({ action: 'reject'});
     const result = await subject(event);
-    expect(index.deps.CodePipeline.putApprovalResult).to.be.called();
+    expect(wasCalledSpy).to.be.called();
   });
 
   it('records who approved it and where it was approved in the approval summary', async () => {
     const apiUrl = randString();
     const approvers = randString();
-    chai.spy.on(index.deps.CodePipeline, 'putApprovalResult', (params) => {
-      expect(params.result.summary).to.include(apiUrl);
-      expect(params.result.summary).to.include(approvers);
-      return { promise: _ => Promise.resolve() }
-    });
+    const wasCalledSpy = chai.spy();  // this is just to enforce that the interface function was actually called, otherwise
+                                      // the internal expectation will silently pass
+    chai.spy.on(index.deps, 'CodePipeline', (params) => chai.spy.interface({
+        putApprovalResult: (putParams) => {
+          expect(putParams.result.summary).to.include(apiUrl);
+          expect(putParams.result.summary).to.include(approvers);
+          wasCalledSpy(putParams);
+          return { promise: _ => Promise.resolve() }
+        }
+      })
+    );
     chai.spy.on(index.deps, 'loadConfig', _ => ({ approvers }));
     const event = newApprovalEvent({ apiUrl });
     const result = await subject(event);
-    expect(index.deps.CodePipeline.putApprovalResult).to.be.called();
+    expect(wasCalledSpy).to.be.called();
   });
 
   it('gives feedback to the user when their approval action was successful', async () => {
     const mockResponse = { statusCode: 200 };
-    chai.spy.on(index.deps.CodePipeline, 'putApprovalResult', (params) => ({ promise: _ => Promise.resolve(mockResponse) }));
+    chai.spy.on(index.deps, 'CodePipeline', (params) => {
+      return {
+        putApprovalResult: (putParams) => ({
+          promise: _ => Promise.resolve(mockResponse)
+        })
+      };
+    });
     chai.spy.on(index.deps, 'loadConfig', _ => ({}));
     const event = newApprovalEvent({ action: 'approve' });
     const result = await subject(event);
@@ -110,7 +140,13 @@ describe('approval handler', _ => {
 
   it('gives feedback to the user when their reject action was successful', async () => {
     const mockResponse = { statusCode: 200 };
-    chai.spy.on(index.deps.CodePipeline, 'putApprovalResult', (params) => ({ promise: _ => Promise.resolve(mockResponse) }));
+    chai.spy.on(index.deps, 'CodePipeline', (params) => {
+      return {
+        putApprovalResult: (putParams) => ({
+          promise: _ => Promise.resolve(mockResponse)
+        })
+      };
+    });
     chai.spy.on(index.deps, 'loadConfig', _ => ({}));
     const event = newApprovalEvent({ action: 'reject' });
     const result = await subject(event);
@@ -120,7 +156,13 @@ describe('approval handler', _ => {
   it('returns an error message from the Pipeline when the approval was already handled by another user', async () => {
     const verificationToken = randString();
     const mockResponse = { statusCode: 400, code: 'ApprovalAlreadyCompletedException', message: 'Mock response' };
-    chai.spy.on(index.deps.CodePipeline, 'putApprovalResult', (params) => ({ promise: _ => Promise.reject(mockResponse) }));
+    chai.spy.on(index.deps, 'CodePipeline', (params) => {
+      return {
+        putApprovalResult: (putParams) => ({
+          promise: _ => Promise.reject(mockResponse)
+        })
+      };
+    });
     chai.spy.on(index.deps, 'loadConfig', _ => ({ verificationToken }));
     const event = newApprovalEvent({verificationToken});
     const result = await subject(event);

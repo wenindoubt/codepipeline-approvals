@@ -2,7 +2,7 @@
 const deps = {};
 deps.AWS = require('aws-sdk');
 deps.SNS = new deps.AWS.SNS({apiVersion: '2010-03-31'});
-deps.CodePipeline = new deps.AWS.CodePipeline({apiVersion: '2015-07-09'});
+deps.CodePipeline = deps.AWS.CodePipeline;
 deps.querystring = require('querystring');
 deps.fetch = require('node-fetch');
 deps.loadConfig = require('load-config');
@@ -57,7 +57,8 @@ const putApproval = (event) => {
     stageName: requestParams.stageName,
     token: requestParams.token,
   };
-  const putPromise = new deps.CodePipeline.putApprovalResult(params).promise()
+  const pipeline = new deps.CodePipeline(({ apiVersion: '2015-07-09' }));
+  const putPromise = pipeline.putApprovalResult(params).promise()
     .then((data) => { return { "statusCode": 200, "body": `Changes were ${action}.` }; })
     .catch((err) => { deps.error(err); return { "statusCode": 500, "body": err.message }; });
   return putPromise;
