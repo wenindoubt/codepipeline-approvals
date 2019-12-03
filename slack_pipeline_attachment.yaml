@@ -70,31 +70,6 @@ Conditions:
     - ''
 
 Resources:
-  AllowApprovalPolicy:
-    Type: AWS::IAM::Policy
-    Properties:
-      PolicyName: !Sub "${AWS::StackName}-AllowApprovals"
-      PolicyDocument:
-        Version: "2012-10-17"
-        Statement:
-          -
-            Effect: "Allow"
-            Action:
-              - "codepipeline:PutApprovalResult"
-            Resource: !Sub
-              - "arn:aws:codepipeline:${ResolvedPipelineRegion}:${AWS::AccountId}:${ResolvedPipelineName}/*"
-              -
-                ResolvedPipelineName: !If
-                  - NoPipelineExportName
-                  - !Ref PipelineName
-                  - Fn::ImportValue: !Ref PipelineExportName
-                ResolvedPipelineRegion: !If
-                  - NoPipelineRegion
-                  - !Ref AWS::Region
-                  - !Ref PipelineRegion
-      Roles:
-        - Fn::ImportValue: !Sub '${ApprovalStackName}:LambdaExecutionRole'
-
   NotifyLambdaSNSSubscription:
     Type: "AWS::SNS::Subscription"
     Properties:
