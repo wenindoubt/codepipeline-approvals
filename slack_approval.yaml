@@ -51,6 +51,16 @@ Resources:
                 Action:
                   - "ssm:GetParametersByPath"
                 Resource: !Sub "arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${AppConfigPath}"
+        -
+          PolicyName: "AllowApprovals"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              -
+                Effect: "Allow"
+                Action:
+                  - "codepipeline:PutApprovalResult"
+                Resource: !Sub "arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:*"
 
   ApprovalLambda:
     Type: AWS::Serverless::Function
