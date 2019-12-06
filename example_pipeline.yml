@@ -129,6 +129,7 @@ Resources:
           Actions:
             -
               Name: "RetrieveSourceCode"
+              Namespace: "SourceVariables"
               ActionTypeId:
                 Owner: ThirdParty
                 Category: Source
@@ -154,7 +155,7 @@ Resources:
                 Version: "1"
               Configuration:
                 NotificationArn: !Ref Approvers1Topic
-                CustomData: !Sub "Approval1: A new version of dummy application has been deployed to https://${TargetTestHost}. Once approved, these changes will be deployed to https://${TargetProdHost}"
+                CustomData: !Sub "Approval1: A new version of ${SourceRepoOwner}/#{SourceVariables.RepositoryName} has been deployed to https://${TargetTestHost}. Once approved, these changes will be deployed to https://${TargetProdHost}. Commit message: '#{SourceVariables.CommitMessage}'. For more details on the changes, see https://github.com/${SourceRepoOwner}/#{SourceVariables.RepositoryName}/commit/#{SourceVariables.CommitId}. "
         -
           Name: Approval2
           Actions:
@@ -167,7 +168,7 @@ Resources:
                 Version: "1"
               Configuration:
                 NotificationArn: !Ref Approvers2Topic
-                CustomData: !Sub "Approval2: A new version of dummy application has been deployed to https://${TargetTestHost}. Once approved, these changes will be deployed to https://${TargetProdHost}"
+                CustomData: !Sub "Approval2: A new version of ${SourceRepoOwner}/#{SourceVariables.RepositoryName} has been deployed to https://${TargetTestHost}. Once approved, these changes will be deployed to https://${TargetProdHost}. Commit message: '#{SourceVariables.CommitMessage}'. For more details on the changes, see https://github.com/${SourceRepoOwner}/#{SourceVariables.RepositoryName}/commit/#{SourceVariables.CommitId}. "
         -
           Name: Approval3
           Actions:
@@ -180,4 +181,4 @@ Resources:
                 Version: "1"
               Configuration:
                 NotificationArn: !Ref Approvers3Topic
-                CustomData: !Sub "Approval3: A new version of dummy application has been deployed to https://${TargetTestHost}. Once approved, these changes will be deployed to https://${TargetProdHost}"
+                CustomData: !Sub "Approval3: A new version of ${SourceRepoOwner}/#{SourceVariables.RepositoryName} has been deployed to https://${TargetTestHost}. Once approved, these changes will be deployed to https://${TargetProdHost}. Commit message: '#{SourceVariables.CommitMessage}'. For more details on the changes, see https://github.com/${SourceRepoOwner}/#{SourceVariables.RepositoryName}/commit/#{SourceVariables.CommitId}. "
