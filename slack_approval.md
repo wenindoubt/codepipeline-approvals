@@ -100,7 +100,7 @@ aws cloudformation deploy \
   --capabilities CAPABILITY_IAM \
   --stack-name example-pipeline-slack-approval \
   --parameter-overrides \
-    ApprovalStackName='slackappname-pipeline-approval' NotifyStackName='slack-channelname-notifier' \
+    NotifyStackName='slack-channelname-notifier' \
     PipelineRegion='pipeline-region' \
     PipelineExportName='appname-pipeline:PipelineName' ApprovalTopicExportName='appname-pipeline:Approvers1Topic'
 ```

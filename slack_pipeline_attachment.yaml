@@ -31,10 +31,6 @@ Parameters:
     Default: ''
     Description: The name of the export that will provide the SNS Topic ARN to subscribe to for approvals
 
-  ApprovalStackName:
-    Type: String
-    Description: The stack name that created the Notification lambda to send approvals to.
-
   NotifyStackName:
     Type: String
     Description: The stack name that created the Notification lambda to send approvals to.
