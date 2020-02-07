@@ -67,7 +67,7 @@ Resources:
     Properties:
         CodeUri: slack_handler/
         Handler: index.approvalHandler
-        Runtime: nodejs8.10
+        Runtime: nodejs12.x
         Role: !GetAtt LambdaExecutionRole.Arn
         Environment:
             Variables:
