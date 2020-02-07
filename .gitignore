@@ -61,7 +61,7 @@ typings/
 .next
 
 **/node_modules
-**/packaged.yaml
+**/*_packaged.yaml
 **/.aws-sam
 
 tmp/

@@ -1,9 +1,23 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: >
-  Creates a Lambda that can receive CodePipeline ManualApproval SNS notifications and relay the message to a Slack channel
-  with a set of interactive buttons for performing the approval/rejection of that pipeline.
+  Posts an interactive message to a Slack channel when a CodePipeline reaches an Approval stage.
   Only one of these should exist per incoming webhook (channel) in your Slack application.
+
+Metadata:
+  AWS::ServerlessRepo::Application:
+    Name: Slack-Approval-Bot-Notifier
+    Description: >
+      Posts an interactive message to a Slack channel when a CodePipeline reaches an Approval stage.
+      Only one of these should exist per incoming webhook (channel) in your Slack application.
+    Author: University of Notre Dame - Hesburgh Library
+    SpdxLicenseId: Apache-2.0
+    LicenseUrl: LICENSE
+    ReadmeUrl: sar_slack_channel_notifier.md
+    Labels: ['slack','continuous','delivery','deployment','pipeline','devops']
+    HomePageUrl: https://github.com/ndlib/codepipeline-approvals
+    SemanticVersion: 1.0.0
+    SourceCodeUrl: https://github.com/ndlib/codepipeline-approvals
 
 Globals:
     Function:
@@ -64,7 +78,7 @@ Resources:
     Properties:
         CodeUri: slack_handler/
         Handler: index.notifyHandler
-        Runtime: nodejs8.10
+        Runtime: nodejs12.x
         Role: !GetAtt LambdaExecutionRole.Arn
         Environment:
             Variables:
