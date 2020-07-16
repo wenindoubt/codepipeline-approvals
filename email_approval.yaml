@@ -121,7 +121,7 @@ Resources:
     Properties:
         CodeUri: email_handler/
         Handler: index.notifyHandler
-        Runtime: nodejs8.10
+        Runtime: nodejs12.x
         Role: !GetAtt PipelineApprovalExecutionRole.Arn
         Environment:
             Variables:
@@ -139,7 +139,7 @@ Resources:
     Properties:
         CodeUri: email_handler/
         Handler: index.approvalHandler
-        Runtime: nodejs8.10
+        Runtime: nodejs12.x
         Role: !GetAtt PipelineApprovalExecutionRole.Arn
         Environment:
             Variables:

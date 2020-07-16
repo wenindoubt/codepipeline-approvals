@@ -4,6 +4,21 @@ Description: >
   Creates a Serverless application that can receive interactive actions from Slack and perform CodePipeline approvals.
   Only one of these should exist per Slack application.
 
+Metadata:
+  AWS::ServerlessRepo::Application:
+    Name: Slack-Approval-Bot
+    Description: >
+      Creates a Serverless application that can receive interactive actions from Slack and perform CodePipeline approvals.
+      Only one of these should exist per Slack application.
+    Author: University of Notre Dame - Hesburgh Library
+    SpdxLicenseId: Apache-2.0
+    LicenseUrl: LICENSE
+    ReadmeUrl: sar_slack_approval.md
+    Labels: ['slack','continuous','delivery','deployment','pipeline','devops']
+    HomePageUrl: https://github.com/ndlib/codepipeline-approvals
+    SemanticVersion: 1.0.0
+    SourceCodeUrl: https://github.com/ndlib/codepipeline-approvals
+
 Globals:
     Function:
         Timeout: 30
@@ -67,7 +82,7 @@ Resources:
     Properties:
         CodeUri: slack_handler/
         Handler: index.approvalHandler
-        Runtime: nodejs8.10
+        Runtime: nodejs12.x
         Role: !GetAtt LambdaExecutionRole.Arn
         Environment:
             Variables:
